@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 
+app.use("/uploads", express.static("uploads"));
 app.use("/api/uploads", express.static("uploads"));
 
 app.use("/api/auth", authRoutes);

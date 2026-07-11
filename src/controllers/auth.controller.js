@@ -54,11 +54,11 @@ export const login = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { username, password, role, phone } = req.body;
+    const { username, password, phone } = req.body;
 
     if (!username || !password || !phone) {
       return res.status(400).json({
-        message: `Todos los campos obligatorios deben enviarse aqui fallo ${username} , ${phone} , ${password} `,
+        message: "Todos los campos obligatorios deben enviarse",
       });
     }
 
@@ -74,7 +74,7 @@ export const register = async (req, res) => {
     const user = await User.create({
       username,
       password: hashedPassword,
-      role: role || "user",
+      role: "user",
       phone,
     });
 

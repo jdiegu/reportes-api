@@ -1,10 +1,11 @@
 import Report from "../models/Report.js";
+import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import fs from "fs";
 
 export const createReport = async (req, res) => {
   try {
-    const { user, mail, password, platform, delivery_date, description } =
+    const { user, mail, password, platform, platform_type, delivery_date, description } =
       req.body;
 
     const report = await Report.create({
@@ -12,6 +13,7 @@ export const createReport = async (req, res) => {
       mail,
       password,
       platform,
+      platform_type: platform_type || "account",
       delivery_date,
       description,
       fail_evidence: req.files.fail_evidence[0].path,
@@ -49,7 +51,7 @@ export const getReports = async (req, res) => {
 
 export const getReportById = async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id);
+    const report = await Report.findById(req.params.id).populate("user");
 
     if (!report) return res.status(404).json({ message: "No encontrado" });
 
@@ -61,32 +63,43 @@ export const getReportById = async (req, res) => {
 
 export const resolveReport = async (req, res) => {
   try {
-    const { text, replaced_mail, replaced_password } = req.body;
+    const { text, type, replaced_mail, replaced_password, credit_amount } = req.body;
 
     const report = await Report.findById(req.params.id);
     if (!report) return res.status(404).json({ message: "No encontrado" });
 
+    const resolutionData = {
+      text,
+      type,
+      replaced_mail,
+      replaced_password,
+      credit_amount: credit_amount || 0,
+      resolvedBy: req.user?.id || null,
+      resolvedAt: new Date(),
+    };
+
     await Report.updateMany(
-      { account_key: report.account_key },  
+      { account_key: report.account_key },
       {
         $set: {
           status: "resolved",
-          resolution: {
-            text,
-            replaced_mail,
-            replaced_password,
-            resolvedAt: new Date(),
-          },
+          resolution: resolutionData,
         },
       },
     );
 
-    /*await AuditLog.create({
-      user: "Sistema",
+    if (type === "credit" && credit_amount > 0) {
+      await User.findByIdAndUpdate(report.user, {
+        $inc: { balance: credit_amount },
+      });
+    }
+
+    await AuditLog.create({
+      user: req.user?.id,
       action: "RESOLVE",
       report: report._id,
-      details: { text },
-    });*/
+      details: { text, type, credit_amount, replaced_mail },
+    });
 
     res.json({ message: "Reportes resueltos en cadena" });
   } catch (error) {

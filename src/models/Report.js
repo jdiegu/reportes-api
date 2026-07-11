@@ -2,19 +2,11 @@ import mongoose from "mongoose";
 
 const reportSchema = new mongoose.Schema(
   {
-    // ─────────────────────────────────────────────
-    // USUARIO
-    // ─────────────────────────────────────────────
-
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-
-    // ─────────────────────────────────────────────
-    // CUENTA AFECTADA
-    // ─────────────────────────────────────────────
 
     mail: {
       type: String,
@@ -53,10 +45,6 @@ const reportSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ─────────────────────────────────────────────
-    // EVIDENCIAS
-    // ─────────────────────────────────────────────
-
     fail_evidence: {
       type: String,
       required: true,
@@ -66,11 +54,6 @@ const reportSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-
-    // ─────────────────────────────────────────────
-    // STATUS
-    // ─────────────────────────────────────────────
-
     status: {
       type: String,
 
@@ -79,14 +62,15 @@ const reportSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    // ─────────────────────────────────────────────
-    // RESOLUCIÓN
-    // ─────────────────────────────────────────────
-
     resolution: {
       text: {
         type: String,
         default: "",
+      },
+
+      type: {
+        type: String,
+        enum: ["replace", "credit", "reject"],
       },
 
       replaced_mail: {
@@ -99,6 +83,11 @@ const reportSchema = new mongoose.Schema(
         default: "",
       },
 
+      credit_amount: {
+        type: Number,
+        default: 0,
+      },
+
       resolvedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -108,10 +97,6 @@ const reportSchema = new mongoose.Schema(
         type: Date,
       },
     },
-
-    // ─────────────────────────────────────────────
-    // CLAVE DE AGRUPACIÓN
-    // ─────────────────────────────────────────────
 
     account_key: {
       type: String,
@@ -124,16 +109,10 @@ const reportSchema = new mongoose.Schema(
   },
 );
 
-// ─────────────────────────────────────────────
-// GENERAR ACCOUNT KEY
-// ─────────────────────────────────────────────
-
 reportSchema.pre("save", async function () {
   this.account_key = `${this.mail}_${this.platform}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 });
-
-// ─────────────────────────────────────────────
 
 export default mongoose.model("Report", reportSchema);

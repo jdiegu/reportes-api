@@ -9,8 +9,11 @@ import {
 } from "../controllers/report.controller.js";
 
 import { upload } from "../middleware/upload.middleware.js";
+import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+router.use(authMiddleware);
 
 router.post(
   "/",

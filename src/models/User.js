@@ -15,7 +15,13 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      require: true,
+      required: true,
+    },
+
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   { timestamps: true },

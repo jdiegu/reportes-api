@@ -10,6 +10,7 @@ import {
 
 import { upload } from "../middleware/upload.middleware.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { roleMiddleware } from "../middleware/role.middleware.js";
 
 const router = express.Router();
 
@@ -30,15 +31,21 @@ router.get("/:id", getReportById);
 
 router.put(
   "/:id/resolve",
+  roleMiddleware("admin", "boss"),
   resolveReport,
 );
 
 router.put("/:id", updateReport);
 
-router.patch("/:id", resolveReport);
+router.patch(
+  "/:id",
+  roleMiddleware("admin", "boss"),
+  resolveReport,
+);
 
 router.delete(
   "/:id",
+  roleMiddleware("admin", "boss"),
   deleteReport,
 );
 

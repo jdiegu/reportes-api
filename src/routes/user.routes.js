@@ -6,6 +6,7 @@ import {
   updateUser,
   deleteUser,
   updateBalance,
+  updateUserRole,
 } from '../controllers/user.controller.js'
 
 import { authMiddleware } from '../middleware/auth.middleware.js'
@@ -16,10 +17,11 @@ const router = Router()
 router.use(authMiddleware)
 
 router.post('/', roleMiddleware('admin', 'boss'), createUser)
-router.get('/', getAllUsers)
+router.get('/', roleMiddleware('admin', 'boss'), getAllUsers)
 router.get('/:id', getUserById)
 router.put('/:id', roleMiddleware('admin', 'boss'), updateUser)
 router.delete('/:id', roleMiddleware('admin', 'boss'), deleteUser)
 router.patch('/:id/balance', roleMiddleware('admin', 'boss'), updateBalance)
+router.patch('/:id/role', roleMiddleware('admin', 'boss'), updateUserRole)
 
 export default router

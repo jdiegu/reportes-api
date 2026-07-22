@@ -2,6 +2,19 @@ import Report from "../models/Report.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import fs from "fs";
+import path from "path";
+
+function unlinkFile(filePath) {
+  const fullPath = path.resolve(filePath);
+  return new Promise((resolve) => {
+    fs.unlink(fullPath, (err) => {
+      if (err && err.code !== "ENOENT") {
+        console.warn(`[FILES] No se pudo eliminar: ${filePath}`);
+      }
+      resolve();
+    });
+  });
+}
 
 export const createReport = async (req, res) => {
   try {
@@ -18,17 +31,17 @@ export const createReport = async (req, res) => {
       description,
       fail_evidence: req.files.fail_evidence[0].path,
       delivery_evidence: req.files.delivery_evidence[0].path,
+      updatedBy: req.user?.id || null,
     });
 
     await AuditLog.create({
-      user: user,
+      user: req.user?.id || user,
       action: "CREATE",
       report: report._id,
     });
 
     res.status(201).json(report);
   } catch (error) {
-    console.log(error, error.message);
     res.status(500).json({ message: error.message });
   }
 };
@@ -36,11 +49,10 @@ export const createReport = async (req, res) => {
 export const getReports = async (req, res) => {
   try {
     let reports;
-    const { userid, role } = req.body;
-    if (role === "admin" || role === "boss") {
-      reports = await Report.find().populate("user");
+    if (req.user.role === "admin" || req.user.role === "boss") {
+      reports = await Report.find().populate("user").populate("updatedBy").populate("resolution.resolvedBy");
     } else {
-      reports = await Report.find({ user: userid });
+      reports = await Report.find({ user: req.user.id }).populate("user").populate("updatedBy").populate("resolution.resolvedBy");
     }
 
     res.json(reports);
@@ -51,7 +63,10 @@ export const getReports = async (req, res) => {
 
 export const getReportById = async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id).populate("user");
+    const report = await Report.findById(req.params.id)
+      .populate("user")
+      .populate("updatedBy")
+      .populate("resolution.resolvedBy");
 
     if (!report) return res.status(404).json({ message: "No encontrado" });
 
@@ -84,6 +99,7 @@ export const resolveReport = async (req, res) => {
         $set: {
           status: "resolved",
           resolution: resolutionData,
+          updatedBy: req.user?.id || null,
         },
       },
     );
@@ -109,13 +125,18 @@ export const resolveReport = async (req, res) => {
 
 export const updateReport = async (req, res) => {
   try {
-    const report = await Report.findByIdAndUpdate(req.params.id, req.body, {
+    const { status } = req.body;
+    const update = { ...req.body, updatedBy: req.user?.id || null };
+
+    const report = await Report.findByIdAndUpdate(req.params.id, update, {
       new: true,
-    });
+    }).populate("user").populate("updatedBy").populate("resolution.resolvedBy");
+
+    if (!report) return res.status(404).json({ message: "No encontrado" });
 
     await AuditLog.create({
       user: req.user.id,
-      action: "UPDATE",
+      action: status ? `STATUS_${status.toUpperCase()}` : "UPDATE",
       report: report._id,
       details: req.body,
     });
@@ -132,12 +153,10 @@ export const deleteReport = async (req, res) => {
 
     if (!report) return res.status(404).json({ message: "No encontrado" });
 
-    if (fs.existsSync(report.fail_evidence)) {
-      fs.unlinkSync(report.fail_evidence);
-    }
-    if (fs.existsSync(report.delivery_evidence)) {
-      fs.unlinkSync(report.delivery_evidence);
-    }
+    await Promise.all([
+      unlinkFile(report.fail_evidence),
+      unlinkFile(report.delivery_evidence),
+    ]);
 
     await report.deleteOne();
 

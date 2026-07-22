@@ -2,6 +2,18 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+function sanitizeUser(user) {
+  return {
+    _id: user._id,
+    username: user.username,
+    role: user.role,
+    phone: user.phone,
+    balance: user.balance,
+    active: user.active,
+    createdAt: user.createdAt,
+  };
+}
+
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -37,17 +49,15 @@ export const login = async (req, res) => {
         id: user._id,
         username: user.username,
         role: user.role,
-        active: user.active,
       },
       process.env.JWT_SECRET,
       { expiresIn: "8h" },
     );
 
-    res.json({ token, user });
+    res.json({ token, user: sanitizeUser(user) });
   } catch (error) {
     res.status(500).json({
       message: "Error en login",
-      error: error.message,
     });
   }
 };
@@ -69,7 +79,7 @@ export const register = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await User.create({
       username,
@@ -83,7 +93,6 @@ export const register = async (req, res) => {
         id: user._id,
         username: user.username,
         role: user.role,
-        active: user.active,
       },
       process.env.JWT_SECRET,
       { expiresIn: "8h" },
@@ -92,13 +101,11 @@ export const register = async (req, res) => {
     res.status(201).json({
       message: "Usuario registrado correctamente",
       token,
-      user,
+      user: sanitizeUser(user),
     });
   } catch (error) {
     res.status(500).json({
-      message: `Error al registrar usuario ${error.message}`,
-      error: error.message,
+      message: "Error al registrar usuario",
     });
   }
 };
-  

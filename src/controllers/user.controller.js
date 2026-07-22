@@ -2,35 +2,77 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 
 export const createUser = async (req, res) => {
-  const data = req.body;
-  data.password = await bcrypt.hash(data.password, 10);
-  const user = await User.create(data);
-  res.status(201).json(user);
+  try {
+    const { username, password, role, phone } = req.body;
+
+    if (!username || !password || !phone) {
+      return res.status(400).json({ message: "Username, password y phone son obligatorios" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const user = await User.create({
+      username,
+      password: hashedPassword,
+      role: role === "admin" ? "admin" : "user",
+      phone,
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      username: user.username,
+      role: user.role,
+      phone: user.phone,
+      balance: user.balance,
+      active: user.active,
+      createdAt: user.createdAt,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const getAllUsers = async (req, res) => {
-  const users = await User.find().select("-password");
-  res.json(users);
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const getUserById = async (req, res) => {
-  const user = await User.findById(req.params.id).select("-password");
-  if (!user) return res.sendStatus(404);
-  res.json(user);
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) return res.sendStatus(404);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const updateUser = async (req, res) => {
-  const data = req.body;
-  if (data.password) {
-    data.password = await bcrypt.hash(data.password, 10);
+  try {
+    const { username, phone, role } = req.body;
+    const update = {};
+    if (username) update.username = username;
+    if (phone) update.phone = phone;
+    if (role && ["user", "admin"].includes(role)) update.role = role;
+
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("-password");
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  const user = await User.findByIdAndUpdate(req.params.id, data, { new: true }).select("-password");
-  res.json(user);
 };
 
 export const deleteUser = async (req, res) => {
-  await User.findByIdAndUpdate(req.params.id, { active: false });
-  res.sendStatus(204);
+  try {
+    await User.findByIdAndUpdate(req.params.id, { active: false });
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const updateBalance = async (req, res) => {
@@ -56,6 +98,41 @@ export const updateBalance = async (req, res) => {
     await user.save();
 
     res.json({ balance: user.balance, message: `Saldo actualizado: $${user.balance}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateUserRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!["user", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Rol invalido. Usa 'user' o 'admin'" });
+    }
+
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ message: "No puedes cambiar tu propio rol" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (user.role === "boss") {
+      return res.status(403).json({ message: "No se puede cambiar el rol de un boss" });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      role: user.role,
+      phone: user.phone,
+      balance: user.balance,
+      active: user.active,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

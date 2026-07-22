@@ -54,12 +54,16 @@ const reportSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
     status: {
       type: String,
-
       enum: ["pending", "in_progress", "resolved"],
-
       default: "pending",
+    },
+
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
 
     resolution: {

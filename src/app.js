@@ -1,10 +1,18 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-const corsConfig = { credentials: true };
+app.set("trust proxy", 1);
+
+const corsConfig = {
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
 if (process.env.CORS_ORIGINS) {
   const origins = process.env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
@@ -31,6 +39,15 @@ app.use("/api/uploads", express.static(path.resolve("uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reports", reportRoutes);
+
+const publicDir = path.resolve(__dirname, "../public");
+app.use(express.static(publicDir));
+app.get("/{*splat}", (req, res, next) => {
+  if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+    return next();
+  }
+  res.sendFile(path.join(publicDir, "index.html"));
+});
 
 app.use((err, _req, res, _next) => {
   console.error("[ERROR]", err.message);

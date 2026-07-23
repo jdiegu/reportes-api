@@ -1,40 +1,20 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.set("trust proxy", 1);
+app.use(cors());
 
-const corsConfig = {
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-
-if (process.env.CORS_ORIGINS) {
-  const origins = process.env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
-  corsConfig.origin = function (origin, callback) {
-    if (!origin || origins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Origen no permitido"));
-    }
-  };
-}
-
-app.use(cors(corsConfig));
-
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json());
 
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 
-app.use("/uploads", express.static(path.resolve("uploads")));
-app.use("/api/uploads", express.static(path.resolve("uploads")));
+app.use("/uploads", express.static("uploads"));
+app.use("/api/uploads", express.static("uploads"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

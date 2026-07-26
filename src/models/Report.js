@@ -34,6 +34,22 @@ const reportSchema = new mongoose.Schema(
       default: "account",
     },
 
+    account_duration: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    is_batch: {
+      type: Boolean,
+      default: false,
+    },
+
+    batch_emails: {
+      type: [String],
+      default: [],
+    },
+
     delivery_date: {
       type: Date,
       required: true,
@@ -85,6 +101,11 @@ const reportSchema = new mongoose.Schema(
       replaced_password: {
         type: String,
         default: "",
+      },
+
+      replaced_mails: {
+        type: [String],
+        default: [],
       },
 
       credit_amount: {

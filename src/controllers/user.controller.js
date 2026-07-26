@@ -3,7 +3,7 @@ import User from "../models/User.js";
 
 export const createUser = async (req, res) => {
   try {
-    const { username, password, role, phone } = req.body;
+    const { username, password, role, phone, name } = req.body;
 
     if (!username || !password || !phone) {
       return res.status(400).json({ message: "Username, password y phone son obligatorios" });
@@ -14,6 +14,7 @@ export const createUser = async (req, res) => {
     const user = await User.create({
       username,
       password: hashedPassword,
+      name: name || "",
       role: role === "admin" ? "admin" : "user",
       phone,
     });
@@ -21,6 +22,7 @@ export const createUser = async (req, res) => {
     res.status(201).json({
       _id: user._id,
       username: user.username,
+      name: user.name,
       role: user.role,
       phone: user.phone,
       balance: user.balance,
@@ -53,13 +55,91 @@ export const getUserById = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
-    const { username, phone, role } = req.body;
+    const { username, phone, role, name } = req.body;
     const update = {};
     if (username) update.username = username;
     if (phone) update.phone = phone;
-    if (role && ["user", "admin"].includes(role)) update.role = role;
+    if (name !== undefined) update.name = name;
 
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("-password");
+    if (role) {
+      const isAdmin = req.user.role === "admin" || req.user.role === "boss";
+      if (!isAdmin) {
+        return res.status(403).json({ message: "No tienes permiso para cambiar roles" });
+      }
+      if (req.params.id === req.user.id) {
+        return res.status(400).json({ message: "No puedes cambiar tu propio rol" });
+      }
+      const target = await User.findById(req.params.id);
+      if (target && target.role === "boss") {
+        return res.status(403).json({ message: "No se puede cambiar el rol de un boss" });
+      }
+      if (["user", "admin"].includes(role)) update.role = role;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' }).select("-password");
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateOwnProfile = async (req, res) => {
+  try {
+    const { name, phone, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Debes ingresar tu contrasena actual" });
+      }
+      const ok = await bcrypt.compare(currentPassword, user.password);
+      if (!ok) {
+        return res.status(401).json({ message: "Contrasena actual incorrecta" });
+      }
+      user.password = await bcrypt.hash(newPassword, 12);
+    }
+
+    if (name !== undefined) user.name = name;
+    if (phone) user.phone = phone;
+
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      balance: user.balance,
+      active: user.active,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const adminUpdateUser = async (req, res) => {
+  try {
+    const { name, phone, password } = req.body;
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (phone) update.phone = phone;
+
+    let user;
+    if (password) {
+      user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+      if (name !== undefined) user.name = name;
+      if (phone) user.phone = phone;
+      user.password = await bcrypt.hash(password, 12);
+      await user.save();
+      user = user.toObject();
+      delete user.password;
+    } else {
+      user = await User.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' }).select("-password");
+    }
+
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -107,6 +187,10 @@ export const updateUserRole = async (req, res) => {
   try {
     const { role } = req.body;
 
+    if (req.user.role !== "boss") {
+      return res.status(403).json({ message: "Solo el boss puede cambiar roles de administrador" });
+    }
+
     if (!["user", "admin"].includes(role)) {
       return res.status(400).json({ message: "Rol invalido. Usa 'user' o 'admin'" });
     }
@@ -128,6 +212,7 @@ export const updateUserRole = async (req, res) => {
     res.json({
       _id: user._id,
       username: user.username,
+      name: user.name,
       role: user.role,
       phone: user.phone,
       balance: user.balance,

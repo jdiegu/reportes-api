@@ -12,6 +12,8 @@ app.use(express.json());
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import reportRoutes from "./routes/report.routes.js";
+import platformRoutes from "./routes/platform.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 app.use("/uploads", express.static("uploads"));
 app.use("/api/uploads", express.static("uploads"));
@@ -19,6 +21,8 @@ app.use("/api/uploads", express.static("uploads"));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/platforms", platformRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 const publicDir = path.resolve(__dirname, "../public");
 app.use(express.static(publicDir));

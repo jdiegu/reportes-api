@@ -4,6 +4,8 @@ import {
   getAllUsers,
   getUserById,
   updateUser,
+  updateOwnProfile,
+  adminUpdateUser,
   deleteUser,
   updateBalance,
   updateUserRole,
@@ -19,9 +21,10 @@ router.use(authMiddleware)
 router.post('/', roleMiddleware('admin', 'boss'), createUser)
 router.get('/', roleMiddleware('admin', 'boss'), getAllUsers)
 router.get('/:id', getUserById)
-router.put('/:id', roleMiddleware('admin', 'boss'), updateUser)
+router.put('/me', updateOwnProfile)
+router.put('/:id', roleMiddleware('admin', 'boss'), adminUpdateUser)
 router.delete('/:id', roleMiddleware('admin', 'boss'), deleteUser)
 router.patch('/:id/balance', roleMiddleware('admin', 'boss'), updateBalance)
-router.patch('/:id/role', roleMiddleware('admin', 'boss'), updateUserRole)
+router.patch('/:id/role', roleMiddleware('boss'), updateUserRole)
 
 export default router

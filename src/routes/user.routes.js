@@ -6,7 +6,9 @@ import {
   updateUser,
   updateOwnProfile,
   adminUpdateUser,
-  deleteUser,
+  deactivateUser,
+  activateUser,
+  hardDeleteUser,
   updateBalance,
   updateUserRole,
 } from '../controllers/user.controller.js'
@@ -23,7 +25,9 @@ router.get('/', roleMiddleware('admin', 'boss'), getAllUsers)
 router.get('/:id', getUserById)
 router.put('/me', updateOwnProfile)
 router.put('/:id', roleMiddleware('admin', 'boss'), adminUpdateUser)
-router.delete('/:id', roleMiddleware('admin', 'boss'), deleteUser)
+router.put('/:id/deactivate', roleMiddleware('boss'), deactivateUser)
+router.put('/:id/activate', roleMiddleware('boss'), activateUser)
+router.delete('/:id', roleMiddleware('boss'), hardDeleteUser)
 router.patch('/:id/balance', roleMiddleware('admin', 'boss'), updateBalance)
 router.patch('/:id/role', roleMiddleware('boss'), updateUserRole)
 

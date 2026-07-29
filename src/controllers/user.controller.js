@@ -146,9 +146,27 @@ export const adminUpdateUser = async (req, res) => {
   }
 };
 
-export const deleteUser = async (req, res) => {
+export const deactivateUser = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.params.id, { active: false });
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const activateUser = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.params.id, { active: true });
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const hardDeleteUser = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
     res.sendStatus(204);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -191,8 +209,8 @@ export const updateUserRole = async (req, res) => {
       return res.status(403).json({ message: "Solo el boss puede cambiar roles de administrador" });
     }
 
-    if (!["user", "admin"].includes(role)) {
-      return res.status(400).json({ message: "Rol invalido. Usa 'user' o 'admin'" });
+    if (!["user", "admin", "boss"].includes(role)) {
+      return res.status(400).json({ message: "Rol invalido. Usa 'user', 'admin' o 'boss'" });
     }
 
     if (req.params.id === req.user.id) {
@@ -201,10 +219,6 @@ export const updateUserRole = async (req, res) => {
 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-
-    if (user.role === "boss") {
-      return res.status(403).json({ message: "No se puede cambiar el rol de un boss" });
-    }
 
     user.role = role;
     await user.save();

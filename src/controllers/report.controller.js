@@ -179,10 +179,7 @@ export const updateReport = async (req, res) => {
     const allowedFields = ["mail", "password", "platform", "platform_type", "delivery_date", "description", "account_duration", "is_batch", "batch_emails"];
     const update = { updatedBy: req.user.id };
 
-    if (isAdmin) {
-      if (req.body.status) update.status = req.body.status;
-      if (req.body.resolution) update.resolution = req.body.resolution;
-    }
+    if (isAdmin && req.body.status) update.status = req.body.status;
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -190,10 +187,39 @@ export const updateReport = async (req, res) => {
       }
     }
 
+    let resolutionDelta = 0;
+    if (isAdmin && req.body.resolution) {
+      const oldRes = report.resolution || {};
+      const oldCredit = oldRes.type === "credit" ? Number(oldRes.credit_amount) || 0 : 0;
+      const newCredit = req.body.resolution.type === "credit" ? Number(req.body.resolution.credit_amount) || 0 : 0;
+      resolutionDelta = newCredit - oldCredit;
+      update.resolution = {
+        ...req.body.resolution,
+        resolvedBy: req.body.resolution.resolvedBy || oldRes.resolvedBy || req.user.id,
+        resolvedAt: req.body.resolution.resolvedAt || oldRes.resolvedAt || new Date(),
+      };
+      update.status = "resolved";
+    }
+
     const updated = await Report.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' })
       .populate("user")
       .populate("updatedBy")
       .populate("resolution.resolvedBy");
+
+    if (isAdmin && req.body.resolution) {
+      await Report.updateMany(
+        { _id: { $ne: req.params.id }, account_key: report.account_key },
+        { $set: { resolution: update.resolution, status: "resolved", updatedBy: req.user.id } },
+      );
+
+      if (resolutionDelta !== 0) {
+        const owner = await User.findById(report.user);
+        if (owner) {
+          owner.balance = Math.max(0, owner.balance + resolutionDelta);
+          await owner.save();
+        }
+      }
+    }
 
     await AuditLog.create({
       user: req.user.id,

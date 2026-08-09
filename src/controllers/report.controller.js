@@ -254,6 +254,157 @@ export const updateReport = async (req, res) => {
   }
 };
 
+export const getStats = async (req, res) => {
+  try {
+    const [
+      totalReports,
+      statusCounts,
+      platforms,
+      reportsByDay,
+      creditsByDay,
+      creditsTotal,
+      topUsers,
+      statusByDay,
+      platformStatus,
+      avgResolutionMs,
+      reportsByHour,
+      avgResolutionByDay,
+    ] = await Promise.all([
+      Report.countDocuments(),
+      Report.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      Report.aggregate([
+        { $group: { _id: "$platform", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Report.aggregate([
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Report.aggregate([
+        { $match: { "resolution.type": "credit", "resolution.resolvedAt": { $exists: true } } },
+        { $sort: { "resolution.resolvedAt": 1 } },
+        {
+          $group: {
+            _id: "$account_key",
+            date: {
+              $first: { $dateToString: { format: "%Y-%m-%d", date: "$resolution.resolvedAt" } },
+            },
+            amount: { $first: { $ifNull: ["$resolution.credit_amount", 0] } },
+          },
+        },
+        { $group: { _id: "$date", amount: { $sum: "$amount" } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Report.aggregate([
+        { $match: { "resolution.type": "credit" } },
+        {
+          $group: {
+            _id: "$account_key",
+            amount: { $first: { $ifNull: ["$resolution.credit_amount", 0] } },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
+      User.find({ role: "user", active: true })
+        .sort({ balance: -1 })
+        .limit(8)
+        .select("username name balance"),
+      Report.aggregate([
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+              status: "$status",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $project: { _id: 0, date: "$_id.date", status: "$_id.status", count: 1 } },
+        { $sort: { date: 1 } },
+      ]),
+      Report.aggregate([
+        {
+          $group: {
+            _id: { platform: "$platform", status: "$status" },
+            count: { $sum: 1 },
+          },
+        },
+        { $project: { _id: 0, platform: "$_id.platform", status: "$_id.status", count: 1 } },
+        { $sort: { platform: 1 } },
+      ]),
+      Report.aggregate([
+        {
+          $match: { status: "resolved", "resolution.resolvedAt": { $exists: true } },
+        },
+        {
+          $group: {
+            _id: null,
+            avgMs: { $avg: { $subtract: ["$resolution.resolvedAt", "$createdAt"] } },
+          },
+        },
+      ]),
+      Report.aggregate([
+        { $group: { _id: { $hour: "$createdAt" }, count: { $sum: 1 } } },
+        { $project: { _id: 0, hour: "$_id", count: 1 } },
+        { $sort: { hour: 1 } },
+      ]),
+      Report.aggregate([
+        {
+          $match: { status: "resolved", "resolution.resolvedAt": { $exists: true } },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            avgMs: { $avg: { $subtract: ["$resolution.resolvedAt", "$createdAt"] } },
+          },
+        },
+        { $project: { _id: 0, date: "$_id", avgMs: 1 } },
+        { $sort: { date: 1 } },
+      ]),
+    ]);
+
+    const findCount = (status) =>
+      (statusCounts.find((s) => s._id === status) || {}).count || 0;
+
+    const resolvedCount = findCount("resolved");
+    const round = (n, p = 10) => Math.round(n * p) / p;
+
+    res.json({
+      totals: {
+        reports: totalReports,
+        pending: findCount("pending"),
+        in_progress: findCount("in_progress"),
+        resolved: resolvedCount,
+        credits_awarded: creditsTotal[0]?.total || 0,
+      },
+      platforms: platforms.map((p) => ({ platform: p._id, count: p.count })),
+      statuses: statusCounts.map((s) => ({ status: s._id, count: s.count })),
+      reportsByDay: reportsByDay.map((d) => ({ date: d._id, count: d.count })),
+      creditsByDay: creditsByDay.map((d) => ({ date: d._id, amount: d.amount })),
+      statusByDay,
+      platformStatus,
+      reportsByHour,
+      avgResolutionByDay,
+      metrics: {
+        success_rate: totalReports ? round((resolvedCount / totalReports) * 100) : 0,
+        avg_resolution_hours: avgResolutionMs[0]?.avgMs
+          ? round(avgResolutionMs[0].avgMs / 3600000)
+          : 0,
+        resolved_count: resolvedCount,
+        total_reports: totalReports,
+      },
+      topUsers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const deleteReport = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);

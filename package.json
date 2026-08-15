@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "build:frontend": "cd ../reportes-lunali && npm run build && rm -rf ../reportes-api/public && cp -r dist ../reportes-api/public"
+    "build:frontend": "cd ../reportes-namishop && npm run build && rm -rf ../reportes-api/public && cp -r dist ../reportes-api/public"
   },
   "keywords": [],
   "author": "",

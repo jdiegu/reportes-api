@@ -124,8 +124,9 @@ export const resolveReport = async (req, res) => {
       resolvedAt: new Date(),
     };
 
+    const scope = type === "credit" ? { _id: report._id } : { account_key: report.account_key };
     await Report.updateMany(
-      { account_key: report.account_key },
+      scope,
       {
         $set: {
           status: "resolved",
@@ -207,10 +208,12 @@ export const updateReport = async (req, res) => {
       .populate("resolution.resolvedBy");
 
     if (isAdmin && req.body.resolution) {
-      await Report.updateMany(
-        { _id: { $ne: req.params.id }, account_key: report.account_key },
-        { $set: { resolution: update.resolution, status: "resolved", updatedBy: req.user.id } },
-      );
+      if (update.resolution.type !== "credit") {
+        await Report.updateMany(
+          { _id: { $ne: req.params.id }, account_key: report.account_key },
+          { $set: { resolution: update.resolution, status: "resolved", updatedBy: req.user.id } },
+        );
+      }
 
       if (resolutionDelta !== 0) {
         const owner = await User.findById(report.user);

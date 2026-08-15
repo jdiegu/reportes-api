@@ -61,7 +61,7 @@ export const createReport = async (req, res) => {
     });
 
     const reporterName = req.user?.username || "Un usuario";
-    const emailCount = batch ? parsedEmails.length + 1 : 1;
+    const emailCount = batch ? parsedEmails.length : 1;
     const suffix = batch && emailCount > 1 ? ` (${emailCount} cuentas en lote)` : "";
     await notifyAdmins(
       "Nuevo reporte",

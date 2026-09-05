@@ -15,6 +15,7 @@ import reportRoutes from "./routes/report.routes.js";
 import platformRoutes from "./routes/platform.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import siteSettingsRoutes from "./routes/siteSettings.routes.js";
+import balanceMovementRoutes from "./routes/balanceMovement.routes.js";
 
 app.use("/uploads", express.static("uploads"));
 app.use("/api/uploads", express.static("uploads"));
@@ -25,6 +26,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/platforms", platformRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/site-settings", siteSettingsRoutes);
+app.use("/api/balance-movements", balanceMovementRoutes);
 
 const publicDir = path.resolve(__dirname, "../public");
 app.use(express.static(publicDir));

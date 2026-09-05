@@ -1,6 +1,7 @@
 import Report from "../models/Report.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
+import BalanceMovement from "../models/BalanceMovement.js";
 import { createNotification } from "./notification.controller.js";
 import fs from "fs";
 import path from "path";
@@ -137,9 +138,22 @@ export const resolveReport = async (req, res) => {
     );
 
     if (type === "credit" && credit_amount > 0) {
-      await User.findByIdAndUpdate(report.user, {
-        $inc: { balance: credit_amount },
-      });
+      const owner = await User.findById(report.user);
+      if (owner) {
+        const previousBalance = owner.balance;
+        owner.balance = owner.balance + credit_amount;
+        await owner.save();
+
+        await BalanceMovement.create({
+          user: owner._id,
+          admin: req.user?.id || null,
+          previousBalance,
+          amount: credit_amount,
+          newBalance: owner.balance,
+          type: "credit",
+          description: "Credito por resolucion de reporte",
+        });
+      }
     }
 
     await AuditLog.create({
@@ -218,8 +232,19 @@ export const updateReport = async (req, res) => {
       if (resolutionDelta !== 0) {
         const owner = await User.findById(report.user);
         if (owner) {
+          const previousBalance = owner.balance;
           owner.balance = Math.max(0, owner.balance + resolutionDelta);
           await owner.save();
+
+          await BalanceMovement.create({
+            user: owner._id,
+            admin: req.user?.id || null,
+            previousBalance,
+            amount: resolutionDelta,
+            newBalance: owner.balance,
+            type: "adjustment",
+            description: "Ajuste por edicion de resolucion de reporte",
+          });
         }
       }
     }

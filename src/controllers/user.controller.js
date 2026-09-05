@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import BalanceMovement from "../models/BalanceMovement.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -192,8 +193,19 @@ export const updateBalance = async (req, res) => {
       return res.status(400).json({ message: "Saldo insuficiente. Saldo actual: $" + user.balance });
     }
 
+    const previousBalance = user.balance;
     user.balance = operation === "add" ? user.balance + amount : user.balance - amount;
     await user.save();
+
+    await BalanceMovement.create({
+      user: user._id,
+      admin: req.user?.id || null,
+      previousBalance,
+      amount: operation === "add" ? amount : -amount,
+      newBalance: user.balance,
+      type: operation,
+      description: `${operation === "add" ? "Carga" : "Descuento"} manual de saldo por administrador`,
+    });
 
     res.json({ balance: user.balance, message: `Saldo actualizado: $${user.balance}` });
   } catch (error) {
